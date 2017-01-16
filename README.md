@@ -19,6 +19,12 @@ var export = map[string]interface {}
 }
 ```
 
+# Install
+
+```sh
+go get -u github.com/mh-cbon/export-funcmap
+```
+
 # Cli
 
 ```sh
@@ -48,6 +54,12 @@ Usage
 		Each package path can be followed by multiple semi-colon variable if
 		multiple variable needs to be extracted from the same package.
 		required.
+
+  -v
+    Show version
+
+  -h|--help
+    Show help
 
 Example
 	export-funcmap gen.go gen export text/template:builtins

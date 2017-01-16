@@ -8,17 +8,24 @@ import (
 	"github.com/mh-cbon/export-funcmap/export"
 )
 
+var version = "0.0.0"
+
 func main() {
 
 	var help = flag.Bool("help", false, "Show help")
 	var shelp = flag.Bool("h", false, "Show help")
+	var sver = flag.Bool("v", false, "Show version")
 
 	flag.Parse()
 
 	if *help || *shelp {
 		showHelp()
 		return
+	} else if *sver {
+		showVersion()
+		return
 	}
+
 	args := os.Args[1:]
 
 	// small trick for go run,
@@ -59,7 +66,7 @@ func main() {
 }
 
 func showHelp() {
-	fmt.Println(`export-funcmap - 0.0.0
+	fmt.Println(`export-funcmap - ` + version + `
 Export a funcmap variable declaration to its symbolic version.
 
 Usage
@@ -91,4 +98,7 @@ Example
 	export-funcmap gen.go gen export text/template:builtins:builtins
 	export-funcmap gen.go gen export text/template:builtins text/template:builtins
 `)
+}
+func showVersion() {
+	fmt.Println(`export-funcmap - ` + version)
 }
