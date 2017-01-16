@@ -55,11 +55,11 @@ Usage
 		multiple variable needs to be extracted from the same package.
 		required.
 
-  -v
-    Show version
+	-v
+		Show version
 
-  -h|--help
-    Show help
+	-h|--help
+		Show help
 
 Example
 	export-funcmap gen.go gen export text/template:builtins
@@ -84,10 +84,10 @@ func main () {
   outfilename := "gen.go"
   outpackage := "gen"
   outvarname := "funcsMap"
-	resPkg, err := export.Export(targets, outfilename, outpackage, outvarname)
-	if err != nil {
-		panic(err)
-	}
-	export.PrintAstFile(os.Stdout, resPkg.Files[outfilename])
+  resPkg, err := export.Export(targets, outfilename, outpackage, outvarname)
+  if err != nil {
+    panic(err)
+  }
+  export.PrintAstFile(os.Stdout, resPkg.Files[outfilename])
 }
 ```
