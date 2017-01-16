@@ -83,7 +83,7 @@ Usage
 		followed by at least one semi-colon to indicate the desired variable
 		to export.
 		Each package path can be followed by multiple semi-colon variable if
-		multiple variable needs to be extrated from the same package.
+		multiple variable needs to be extracted from the same package.
 		required.
 
 Example
