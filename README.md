@@ -1,6 +1,8 @@
 # export-funcmap
 
-Export a funcmap variable declaration to its symbolic version.
+Export a funcmap variable declaration to
+- its symbolic version
+- its public identifiers, when possible
 
 The output is useful to perform source code analysis of go templates,
 it will be similar to this,
@@ -15,6 +17,16 @@ var export = map[string]interface {}
   },
   "call": func(fn interface {}, args ...interface {}) (interface {}, error) {
   	return nil, nil
+  },
+  "html": func(args ...interface {}) string {
+   return ""
+  },
+}
+var exportPublic []map[string]string = []map[string]string{
+  map[string]string{
+    "FuncName": "html",
+    "Sel": "template.HTMLEscaper",
+    "Pkg": "text/template",
   },
 }
 ```
@@ -84,10 +96,13 @@ func main () {
   outfilename := "gen.go"
   outpackage := "gen"
   outvarname := "funcsMap"
-  resPkg, err := export.Export(targets, outfilename, outpackage, outvarname)
+
+  file, err := export.Export(targets, outfilename, outpackage, outvarname)
   if err != nil {
-    panic(err)
+  	panic(err)
   }
-  export.PrintAstFile(os.Stdout, resPkg.Files[outfilename])
+
+  // print the result.
+  export.PrintAstFile(os.Stdout, file)
 }
 ```
