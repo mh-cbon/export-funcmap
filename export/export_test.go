@@ -461,7 +461,7 @@ func execTest(data testData, t *testing.T, prog *loader.Program) bool {
 		},
 	}
 	_, destFile := export.NewPkg("gen.go", "gen")
-	mapVar, imported, err := export.Export(targets, "tomate", prog, destFile)
+	mapVar, imported, err := export.Symbolic(targets, "tomate", prog, destFile)
 
 	// create and inject the import statement
 	export.AddImportDecl(destFile, imported)

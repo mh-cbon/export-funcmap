@@ -45,8 +45,8 @@ func (t *Targets) GetPackagePaths() []string {
 	return ret
 }
 
-// Export a symbolic map of given target package and ther idents.
-func Export(targetPackagePaths Targets, outvarname string, prog *loader.Program, destFile *ast.File) (*ast.GenDecl, []string, error) {
+// Symbolic a symbolic map of given target package and ther idents.
+func Symbolic(targetPackagePaths Targets, outvarname string, prog *loader.Program, destFile *ast.File) (*ast.GenDecl, []string, error) {
 
 	var err error
 	var imported []string
