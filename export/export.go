@@ -36,29 +36,23 @@ func (t *Targets) Parse(s []string) error {
 	return nil
 }
 
+// GetPackagePaths returns the list of package path
+func (t *Targets) GetPackagePaths() []string {
+	var ret []string
+	for _, target := range *t {
+		ret = append(ret, target.PkgPath)
+	}
+	return ret
+}
+
 // Export a symbolic map of given target package and ther idents.
-func Export(targetPackagePaths Targets, outfile, outpkg, outvarname string) (*ast.Package, error) {
+func Export(targetPackagePaths Targets, outvarname string, prog *loader.Program, destFile *ast.File) (*ast.GenDecl, []string, error) {
 
 	var err error
-
-	destPkg, destFile := newPkg(outfile, outpkg)
-
-	// Add a GenDecl import statement node to the file tree.
-	// literaly: import("pkg"...)
-	importGenDecl := newImportDecl()
+	var imported []string
 
 	// Add a varDecl, var xx = map[string]interface{}{}
 	mapStrIntDecl, elts := newMapStringInterfaceDelc(outvarname)
-
-	targetPackages := []string{}
-	for _, targetPackagePath := range targetPackagePaths {
-		targetPackages = append(targetPackages, targetPackagePath.PkgPath)
-	}
-
-	prog, err := getProgram(targetPackages)
-	if err != nil {
-		return nil, err
-	}
 
 	for _, targetPackagePath := range targetPackagePaths {
 
@@ -88,7 +82,7 @@ func Export(targetPackagePaths Targets, outfile, outpkg, outvarname string) (*as
 						// printTuple(in)
 						fn.Type.Params, err2 = newFuncParams(in, signature.Variadic())
 						if err2 != nil {
-							return nil, err2
+							return nil, nil, err2
 						}
 
 						// Define func returns func(...) string... {}
@@ -96,41 +90,32 @@ func Export(targetPackagePaths Targets, outfile, outpkg, outvarname string) (*as
 						// printTuple(out)
 						fn.Type.Results, err2 = newFuncResults(out)
 						if err2 != nil {
-							return nil, err2
+							return nil, nil, err2
 						}
 
 						// Define func body func(...) ... { return ""...}
 						fn.Body, err2 = newFuncBodyZeroValue(out)
 						if err2 != nil {
-							return nil, err2
+							return nil, nil, err2
 						}
 
 						// extracts imports from the func
-						InjectImportPaths(extractImports(in), importGenDecl)
-						InjectImportPaths(extractImports(out), importGenDecl)
+						imported = append(imported, extractImports(in)...)
+						imported = append(imported, extractImports(out)...)
 					}
 				}
 			}
 			if found == false {
-				return nil, fmt.Errorf(
+				return nil, nil, fmt.Errorf(
 					"variable %v not found in %v",
 					searchIdent,
 					targetPackagePath.PkgPath,
 				)
 			}
 		}
-
 	}
 
-	if len(importGenDecl.Specs) > 0 {
-		if len(importGenDecl.Specs) > 1 {
-			importGenDecl.Lparen = token.Pos(1)
-		}
-		destFile.Decls = append(destFile.Decls, importGenDecl)
-	}
-	destFile.Decls = append(destFile.Decls, mapStrIntDecl)
-
-	return destPkg, err
+	return mapStrIntDecl, imported, err
 }
 
 // GetVarDecl returns the ast node of the variable declaration.
@@ -161,7 +146,7 @@ func GetImportDecl(p *ast.File) *ast.GenDecl {
 func MustGetImportDecl(p *ast.File) *ast.GenDecl {
 	i := GetImportDecl(p)
 	if i == nil {
-		i = newImportDecl()
+		i = NewImportDecl()
 	}
 	return i
 }
@@ -170,22 +155,6 @@ func MustGetImportDecl(p *ast.File) *ast.GenDecl {
 func PrintAstFile(w io.Writer, node interface{}) error {
 	fset := token.NewFileSet()
 	return format.Node(w, fset, node)
-}
-
-func getProgram(pkgs []string) (*loader.Program, error) {
-
-	var conf loader.Config
-	_, err := conf.FromArgs(pkgs, false)
-	if err != nil {
-		return nil, err
-	}
-
-	prog, err2 := conf.Load()
-	if err2 != nil {
-		return nil, err2
-	}
-
-	return prog, err
 }
 
 func findMapStringInterface(pkg *types.Package, defs map[*ast.Ident]types.Object) map[*ast.Ident]types.Object {
@@ -483,19 +452,6 @@ func typesTypeToAstExpr(t types.Type, ellisped bool) (ast.Expr, error) {
 	return nil, fmt.Errorf("Unhandled param type %v", t)
 }
 
-func newPkg(fileName string, pkgName string) (*ast.Package, *ast.File) {
-
-	f := &ast.File{}
-	f.Name = &ast.Ident{Name: pkgName}
-
-	p := &ast.Package{}
-	p.Name = pkgName
-
-	p.Files = map[string]*ast.File{fileName: f}
-
-	return p, f
-}
-
 func newImportSpec(importPath string, importName string) *ast.ImportSpec {
 
 	s := &ast.ImportSpec{}
@@ -514,7 +470,8 @@ func newImportSpec(importPath string, importName string) *ast.ImportSpec {
 	return s
 }
 
-func newImportDecl() *ast.GenDecl {
+// NewImportDecl creates a new import(...) declaration
+func NewImportDecl() *ast.GenDecl {
 	importGenDecl := &ast.GenDecl{}
 	importGenDecl.Tok = token.IMPORT
 	return importGenDecl
@@ -564,4 +521,52 @@ func injectKvIntoMapStringInterface(kv *ast.KeyValueExpr, elts *ast.CompositeLit
 		}
 	}
 	elts.Elts = append(elts.Elts, kv)
+}
+
+// GetProgram creates a new Program of a list of packages.
+func GetProgram(pkgs []string) (*loader.Program, error) {
+
+	var conf loader.Config
+	_, err := conf.FromArgs(pkgs, false)
+	if err != nil {
+		return nil, err
+	}
+
+	prog, err2 := conf.Load()
+	if err2 != nil {
+		return nil, err2
+	}
+
+	return prog, err
+}
+
+// NewPkg creates a new go package.
+func NewPkg(fileName string, pkgName string) (*ast.Package, *ast.File) {
+
+	f := &ast.File{}
+	f.Name = &ast.Ident{Name: pkgName}
+
+	p := &ast.Package{}
+	p.Name = pkgName
+
+	p.Files = map[string]*ast.File{fileName: f}
+
+	return p, f
+}
+
+// AddImportDecl creates and add an import statement to the file.
+func AddImportDecl(file *ast.File, imports []string) {
+	if len(imports) > 0 {
+		// Add a GenDecl import statement node to the file tree.
+		// literaly: import("pkg"...)
+		importGenDecl := NewImportDecl()
+		// append the declaration to the file
+		file.Decls = append(file.Decls, importGenDecl)
+
+		// inject package path consumed by the new map variable into the file.
+		InjectImportPaths(imports, importGenDecl)
+
+		// Make a mutiline import declaration.
+		importGenDecl.Lparen = token.Pos(1)
+	}
 }
