@@ -119,11 +119,13 @@ func Symbolic(targetPackagePaths Targets, outvarname string, prog *loader.Progra
 }
 
 // GetVarDecl returns the ast node of the variable declaration.
-func GetVarDecl(p *ast.File) *ast.GenDecl {
+func GetVarDecl(p *ast.File, name string) *ast.GenDecl {
 	for _, v := range p.Decls {
 		if n, ok := v.(*ast.GenDecl); ok {
 			if n.Tok == token.VAR {
-				return n
+				if n.Specs[0].(*ast.ValueSpec).Names[0].Name == name {
+					return n
+				}
 			}
 		}
 	}
