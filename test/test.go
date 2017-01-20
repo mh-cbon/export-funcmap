@@ -1,19 +1,19 @@
 package a
 
 import (
-	"html/template"
+	alias "html/template"
 
 	"github.com/mh-cbon/export-funcmap/test/a"
 )
 
 var k = map[string]interface{}{
-	"a":  template.JSEscapeString,
+	"a":  alias.JSEscapeString,
 	"b":  rr,
 	"c":  func() {},
 	"yy": a.SomeFn,
 	"zz": a.SomeOtherFn,
-	"g": func() template.HTML {
-		return template.HTML("")
+	"g": func() alias.HTML {
+		return alias.HTML("")
 	},
 	"e":   func(g bool) bool { return bool(true) },
 	"e0":  func(g byte) byte { return 0 },
@@ -32,8 +32,8 @@ var k = map[string]interface{}{
 	"dup": func(g int8) int8 { return 0 },
 }
 
-var k2 = template.FuncMap{
-	"a":  template.JSEscapeString,
+var k2 = alias.FuncMap{
+	"a":  alias.JSEscapeString,
 	"b":  rr,
 	"c":  func() {},
 	"yy": a.SomeFn,
@@ -41,8 +41,8 @@ var k2 = template.FuncMap{
 	"zz": a.SomeOtherFn,
 	"ii": a.SomeFnInterface,
 	"uu": a.SomeFnPointer,
-	"g": func() template.HTML {
-		return template.HTML("")
+	"g": func() alias.HTML {
+		return alias.HTML("")
 	},
 	"dup": func(g string) string { return "" },
 }
