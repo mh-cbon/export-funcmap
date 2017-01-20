@@ -54,14 +54,45 @@ func main() {
 		return
 	}
 
-	resPkg, err := export.Export(targets, outfilename, outpackage, outvarname)
+	// gather all targeted packages
+	targetPackages := targets.GetPackagePaths()
+	// make a program of them
+	prog, err := export.GetProgram(targetPackages)
 	if err != nil {
 		panic(err)
 	}
 
-	export.PrintAstFile(os.Stdout, resPkg.Files[outfilename])
-	// vardecl := export.GetVarDecl(resPkg.Files[outfilename])
-	// export.ToReflect(vardecl)
+	// create a new file of a package.
+	_, destFile := export.NewPkg(outfilename, outpackage)
+
+	// generate the symbolic expression of the funcmap as a declaration
+	// as a var xx map[string]interface{} = map[string]interface{}{...}
+	mapVar, imported, err := export.Export(targets, outvarname, prog, destFile)
+	if err != nil {
+		panic(err)
+	}
+
+	publicIdents, err := export.PublicIdents(targets, outvarname+"Public", prog, destFile)
+	if err != nil {
+		panic(err)
+	}
+
+	xx, err := export.Files(targets, outvarname+"Public", prog, destFile)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%#v\n", xx)
+
+	// create and inject the import statement
+	export.AddImportDecl(destFile, imported)
+
+	// add the new var to the file.
+	destFile.Decls = append(destFile.Decls, mapVar)
+	destFile.Decls = append(destFile.Decls, publicIdents)
+
+	// print the result.
+	export.PrintAstFile(os.Stdout, destFile)
 
 }
 
