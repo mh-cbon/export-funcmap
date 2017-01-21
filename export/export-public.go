@@ -47,50 +47,53 @@ func PublicIdents(targetPackagePaths Targets, outvarname string, prog *loader.Pr
 			for id := range findMapStringInterface(ourpkg.Pkg, ourpkg.Defs) {
 				if id.Name == searchIdent {
 					found = true
-					keyValues := id.Obj.Decl.(*ast.ValueSpec).Values[0].(*ast.CompositeLit).Elts
-					for _, e := range keyValues {
-						expr := e.(*ast.KeyValueExpr).Value
-						key := e.(*ast.KeyValueExpr).Key.(*ast.BasicLit)
-						switch node := expr.(type) {
-						case *ast.Ident:
-							if ast.IsExported(node.Name) {
-								res = append(res, map[string]string{
-									"FuncName": key.Value[1 : len(key.Value)-1], // remove quotes
-									"Sel":      ourpkg.Pkg.Name() + "." + node.Name,
-									"Pkg":      ourpkg.Pkg.Path(),
-								})
-							}
-						case *ast.SelectorExpr:
-							if ast.IsExported(node.Sel.Name) {
-
-								pkgg := ourpkg.Uses[node.X.(*ast.Ident)]
-								// dirty way :x
-								// str will look like
-								// package alias ("html/template")
-								// or
-								// package fmt
-								str := pkgg.String()
-								str = str[8:] // get ride of package
-								if strings.Index(str, " ") > -1 {
-									str = strings.Split(str, " ")[1]
-									str = str[2 : len(str)-2] // get ride of parenthesis and quotes
+					valueSpec := id.Obj.Decl.(*ast.ValueSpec)
+					if len(valueSpec.Values) > 0 {
+						keyValues := valueSpec.Values[0].(*ast.CompositeLit).Elts
+						for _, e := range keyValues {
+							expr := e.(*ast.KeyValueExpr).Value
+							key := e.(*ast.KeyValueExpr).Key.(*ast.BasicLit)
+							switch node := expr.(type) {
+							case *ast.Ident:
+								if ast.IsExported(node.Name) {
+									res = append(res, map[string]string{
+										"FuncName": key.Value[1 : len(key.Value)-1], // remove quotes
+										"Sel":      ourpkg.Pkg.Name() + "." + node.Name,
+										"Pkg":      ourpkg.Pkg.Path(),
+									})
 								}
-								importPath := str
-								pkgName := filepath.Base(importPath)
+							case *ast.SelectorExpr:
+								if ast.IsExported(node.Sel.Name) {
 
-								res = append(res, map[string]string{
-									"FuncName": key.Value[1 : len(key.Value)-1], // remove quotes
-									"Sel":      pkgName + "." + node.Sel.Name,
-									"Pkg":      importPath,
-								})
+									pkgg := ourpkg.Uses[node.X.(*ast.Ident)]
+									// dirty way :x
+									// str will look like
+									// package alias ("html/template")
+									// or
+									// package fmt
+									str := pkgg.String()
+									str = str[8:] // get ride of package
+									if strings.Index(str, " ") > -1 {
+										str = strings.Split(str, " ")[1]
+										str = str[2 : len(str)-2] // get ride of parenthesis and quotes
+									}
+									importPath := str
+									pkgName := filepath.Base(importPath)
+
+									res = append(res, map[string]string{
+										"FuncName": key.Value[1 : len(key.Value)-1], // remove quotes
+										"Sel":      pkgName + "." + node.Sel.Name,
+										"Pkg":      importPath,
+									})
+								}
+							case *ast.FuncLit:
+								//pass
+							default:
+								panic(
+									fmt.Errorf("export.PublicIdents: unhandled ast node type %v\n%#v",
+										node, node),
+								)
 							}
-						case *ast.FuncLit:
-							//pass
-						default:
-							panic(
-								fmt.Errorf("export.PublicIdents: unhandled ast node type %v\n%#v",
-									node, node),
-							)
 						}
 					}
 				}
