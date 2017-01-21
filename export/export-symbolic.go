@@ -63,45 +63,47 @@ func Symbolic(targetPackagePaths Targets, outvarname string, prog *loader.Progra
 			for id := range findMapStringInterface(ourpkg.Pkg, ourpkg.Defs) {
 				if id.Name == searchIdent {
 					found = true
-					keyValues := id.Obj.Decl.(*ast.ValueSpec).Values[0].(*ast.CompositeLit).Elts
-					for i := range keyValues {
+					valueSpec := id.Obj.Decl.(*ast.ValueSpec)
+					if len(valueSpec.Values) > 0 {
+						keyValues := valueSpec.Values[0].(*ast.CompositeLit).Elts
+						for i := range keyValues {
+							key := keyValues[i].(*ast.KeyValueExpr).Key.(*ast.BasicLit)
 
-						key := keyValues[i].(*ast.KeyValueExpr).Key.(*ast.BasicLit)
+							// Create a key on the map, "x":func(){}
+							kv, fn := newKeyValueStringFuncLit(key.Value)
+							// Add the kvalue on the map
+							injectKvIntoMapStringInterface(kv, elts)
 
-						// Create a key on the map, "x":func(){}
-						kv, fn := newKeyValueStringFuncLit(key.Value)
-						// Add the kvalue on the map
-						injectKvIntoMapStringInterface(kv, elts)
+							identLike := keyValues[i].(*ast.KeyValueExpr).Value
+							signature := ourpkg.Types[identLike].Type.(*types.Signature)
 
-						identLike := keyValues[i].(*ast.KeyValueExpr).Value
-						signature := ourpkg.Types[identLike].Type.(*types.Signature)
+							var err2 error
+							// Define func parameters func(p string...) {}
+							in := signature.Params()
+							// printTuple(in)
+							fn.Type.Params, err2 = newFuncParams(in, signature.Variadic())
+							if err2 != nil {
+								return nil, nil, err2
+							}
 
-						var err2 error
-						// Define func parameters func(p string...) {}
-						in := signature.Params()
-						// printTuple(in)
-						fn.Type.Params, err2 = newFuncParams(in, signature.Variadic())
-						if err2 != nil {
-							return nil, nil, err2
+							// Define func returns func(...) string... {}
+							out := signature.Results()
+							// printTuple(out)
+							fn.Type.Results, err2 = newFuncResults(out)
+							if err2 != nil {
+								return nil, nil, err2
+							}
+
+							// Define func body func(...) ... { return ""...}
+							fn.Body, err2 = newFuncBodyZeroValue(out)
+							if err2 != nil {
+								return nil, nil, err2
+							}
+
+							// extracts imports from the func
+							imported = append(imported, extractImports(in)...)
+							imported = append(imported, extractImports(out)...)
 						}
-
-						// Define func returns func(...) string... {}
-						out := signature.Results()
-						// printTuple(out)
-						fn.Type.Results, err2 = newFuncResults(out)
-						if err2 != nil {
-							return nil, nil, err2
-						}
-
-						// Define func body func(...) ... { return ""...}
-						fn.Body, err2 = newFuncBodyZeroValue(out)
-						if err2 != nil {
-							return nil, nil, err2
-						}
-
-						// extracts imports from the func
-						imported = append(imported, extractImports(in)...)
-						imported = append(imported, extractImports(out)...)
 					}
 				}
 			}
@@ -492,10 +494,15 @@ func InjectImportPaths(importPaths []string, decl *ast.GenDecl) {
 			}
 		}
 		if duplicate == false {
-			spec := newImportSpec(importPath, "")
-			decl.Specs = append(decl.Specs, spec)
+			InjectAliasedImportPaths(importPath, "", decl)
 		}
 	}
+}
+
+// InjectAliasedImportPaths injects given import path into the provided decl.
+func InjectAliasedImportPaths(importPath string, alias string, decl *ast.GenDecl) {
+	spec := newImportSpec(importPath, alias)
+	decl.Specs = append(decl.Specs, spec)
 }
 
 func isMapStringInterface(t types.Type) bool {
