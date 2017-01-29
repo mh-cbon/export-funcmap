@@ -1,6 +1,7 @@
 package export
 
 import (
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -45,6 +46,18 @@ func (t *Targets) GetPackagePaths() []string {
 	return ret
 }
 
+func astNodeToString(n ast.Node) string {
+	var b bytes.Buffer
+	err := format.Node(&b, token.NewFileSet(), n)
+	if err != nil {
+		err := fmt.Errorf(
+			"astNodeToString: Failed to convert ast node to string\n%v\n%#v",
+			n, n)
+		panic(err)
+	}
+	return b.String()
+}
+
 // Symbolic a symbolic map of given target package and ther idents.
 func Symbolic(targetPackagePaths Targets, outvarname string, prog *loader.Program, destFile *ast.File) (*ast.GenDecl, []string, error) {
 
@@ -62,47 +75,48 @@ func Symbolic(targetPackagePaths Targets, outvarname string, prog *loader.Progra
 			found := false
 			for id := range findMapStringInterface(ourpkg.Pkg, ourpkg.Defs) {
 				if id.Name == searchIdent {
-					found = true
-					valueSpec := id.Obj.Decl.(*ast.ValueSpec)
-					if len(valueSpec.Values) > 0 {
-						keyValues := valueSpec.Values[0].(*ast.CompositeLit).Elts
-						for i := range keyValues {
-							key := keyValues[i].(*ast.KeyValueExpr).Key.(*ast.BasicLit)
+					if valueSpec, ok := id.Obj.Decl.(*ast.ValueSpec); ok {
+						found = true
+						if len(valueSpec.Values) > 0 {
+							keyValues := valueSpec.Values[0].(*ast.CompositeLit).Elts
+							for i := range keyValues {
+								key := keyValues[i].(*ast.KeyValueExpr).Key.(*ast.BasicLit)
 
-							// Create a key on the map, "x":func(){}
-							kv, fn := newKeyValueStringFuncLit(key.Value)
-							// Add the kvalue on the map
-							injectKvIntoMapStringInterface(kv, elts)
+								// Create a key on the map, "x":func(){}
+								kv, fn := newKeyValueStringFuncLit(key.Value)
+								// Add the kvalue on the map
+								injectKvIntoMapStringInterface(kv, elts)
 
-							identLike := keyValues[i].(*ast.KeyValueExpr).Value
-							signature := ourpkg.Types[identLike].Type.(*types.Signature)
+								identLike := keyValues[i].(*ast.KeyValueExpr).Value
+								signature := ourpkg.Types[identLike].Type.(*types.Signature)
 
-							var err2 error
-							// Define func parameters func(p string...) {}
-							in := signature.Params()
-							// printTuple(in)
-							fn.Type.Params, err2 = newFuncParams(in, signature.Variadic())
-							if err2 != nil {
-								return nil, nil, err2
+								var err2 error
+								// Define func parameters func(p string...) {}
+								in := signature.Params()
+								// printTuple(in)
+								fn.Type.Params, err2 = newFuncParams(in, signature.Variadic())
+								if err2 != nil {
+									return nil, nil, err2
+								}
+
+								// Define func returns func(...) string... {}
+								out := signature.Results()
+								// printTuple(out)
+								fn.Type.Results, err2 = newFuncResults(out)
+								if err2 != nil {
+									return nil, nil, err2
+								}
+
+								// Define func body func(...) ... { return ""...}
+								fn.Body, err2 = newFuncBodyZeroValue(out)
+								if err2 != nil {
+									return nil, nil, err2
+								}
+
+								// extracts imports from the func
+								imported = append(imported, extractImports(in)...)
+								imported = append(imported, extractImports(out)...)
 							}
-
-							// Define func returns func(...) string... {}
-							out := signature.Results()
-							// printTuple(out)
-							fn.Type.Results, err2 = newFuncResults(out)
-							if err2 != nil {
-								return nil, nil, err2
-							}
-
-							// Define func body func(...) ... { return ""...}
-							fn.Body, err2 = newFuncBodyZeroValue(out)
-							if err2 != nil {
-								return nil, nil, err2
-							}
-
-							// extracts imports from the func
-							imported = append(imported, extractImports(in)...)
-							imported = append(imported, extractImports(out)...)
 						}
 					}
 				}
@@ -456,7 +470,8 @@ func typesTypeToAstExpr(t types.Type, ellisped bool) (ast.Expr, error) {
 	return nil, fmt.Errorf("Unhandled param type %v", t)
 }
 
-func newImportSpec(importPath string, importName string) *ast.ImportSpec {
+// NewImportSpec creates a new import statement
+func NewImportSpec(importPath string, importName string) *ast.ImportSpec {
 
 	s := &ast.ImportSpec{}
 
@@ -501,7 +516,7 @@ func InjectImportPaths(importPaths []string, decl *ast.GenDecl) {
 
 // InjectAliasedImportPaths injects given import path into the provided decl.
 func InjectAliasedImportPaths(importPath string, alias string, decl *ast.GenDecl) {
-	spec := newImportSpec(importPath, alias)
+	spec := NewImportSpec(importPath, alias)
 	decl.Specs = append(decl.Specs, spec)
 }
 
