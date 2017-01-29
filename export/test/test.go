@@ -3,6 +3,7 @@ package a
 import (
 	notbytes "bytes"
 	"html/template"
+	text "text/template"
 )
 
 var stringfn = map[string]interface{}{
@@ -107,6 +108,10 @@ var otherstringfn = map[string]interface{}{
 }
 var notbytesfn = map[string]interface{}{
 	"fn": func(o notbytes.Buffer) string { return "" },
+}
+
+var funcMap = text.FuncMap{
+	"_html_template_attrescaper": func() {},
 }
 
 // SomeStruct with a comment.

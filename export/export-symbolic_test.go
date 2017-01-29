@@ -423,6 +423,16 @@ return ""
 }}`,
 		},
 		testData{
+			pkg:            tpkg,
+			varnames:       []string{"funcMap"},
+			expectKeyCount: 1,
+			expectContents: `package gen
+
+var tomate = map[string]interface {
+}{"_html_template_attrescaper": func() {
+}}`,
+		},
+		testData{
 			pkg:       tpkg,
 			varnames:  []string{"typeUnexportedfn"},
 			expectErr: true,
