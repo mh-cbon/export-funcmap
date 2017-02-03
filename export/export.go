@@ -9,6 +9,13 @@ func Export(targets Targets, outfilename, outpackage, outvarname string) (*ast.F
 
 	// gather all targeted packages
 	targetPackages := targets.GetPackagePaths()
+
+	// is it already processed ?
+	if f := getCached(targetPackages); f != nil {
+		// yup.
+		return f, nil
+	}
+
 	// make a program of them
 	prog, err := GetProgram(targetPackages)
 	if err != nil {
@@ -37,5 +44,38 @@ func Export(targets Targets, outfilename, outpackage, outvarname string) (*ast.F
 	destFile.Decls = append(destFile.Decls, mapVar)
 	destFile.Decls = append(destFile.Decls, publicIdents)
 
+	storeCached(targetPackages, destFile)
+
 	return destFile, nil
+}
+
+// EnableCache set cache status
+var EnableCache = true
+
+var cached = map[string]*ast.File{}
+
+func getCacheKey(targetPackages []string) string {
+	n := ""
+	for _, t := range targetPackages {
+		n += t + "\n"
+	}
+	return n
+}
+func getCached(targetPackages []string) *ast.File {
+	if !EnableCache {
+		return nil
+	}
+	key := getCacheKey(targetPackages)
+	if f, ok := cached[key]; ok {
+		// always return a copy.
+		return stringToAst(astNodeToString(f))
+	}
+	return nil
+}
+
+func storeCached(targetPackages []string, f *ast.File) {
+	if EnableCache {
+		key := getCacheKey(targetPackages)
+		cached[key] = f
+	}
 }

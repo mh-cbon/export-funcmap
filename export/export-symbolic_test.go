@@ -23,7 +23,11 @@ type testData struct {
 var keyMatch = regexp.MustCompile(`"[^"]+":`)
 
 func TestBool(t *testing.T) {
+
+	export.EnableCache = false
+
 	tpkg := "github.com/mh-cbon/export-funcmap/export/test"
+
 	datas := []testData{
 		testData{
 			pkg:            tpkg,
